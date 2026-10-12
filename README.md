@@ -7,6 +7,7 @@ A plugin for [BB](https://getbb.app).
 ## Highlights
 
 - **Live waterfall.** Turns and tool calls aligned with their recorded timing.
+- **Skills and tools.** Dedicated Skills and Tools tabs group recorded tool calls and detects skill-file reads or explicit `Skill` calls. Open an entry to inspect its source call; global and repo skill paths remain separate. Rows show scope (Global or Project) and source (Shared agents, Codex, Claude, Codex plugin, or BB) when the recorded path supports it. MCP tools retain server identity, so same-name tools from different servers stay separate. Unidentified sources have no label. Counts cover the loaded history. A read is evidence of a requested file, not proof that the skill instructions were followed.
 - **Inspect on demand.** Inputs, outputs, metadata, and source lifecycle events.
 - **Reported usage.** Input, output, and cache token snapshots with explicit coverage limits.
 - **Two entry points.** A sidebar viewer and a panel tab inside each thread.
@@ -21,7 +22,7 @@ Requires BB 0.43+ and a compatible Plugin SDK (see `package.json`).
 
 ## Use
 
-Open **Traces** in the sidebar or add a Traces tab to a thread panel. Token counts are provider-reported thread snapshots, not per-tool costs.
+Open **Traces** in the sidebar or add a Traces tab to a thread panel. Switch between Activity, Skills, Tools, and Usage. The inspector opens only when a call is selected; selecting a skill or tool source call takes you to its Activity view. Token counts are provider-reported thread snapshots, not per-tool costs.
 
 ## Designed to stay responsive
 

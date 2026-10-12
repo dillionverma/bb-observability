@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { groupUsage, type UsageGroup } from "./usage";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
   definePluginApp,
@@ -707,6 +708,35 @@ function Inspector({
   );
 }
 
+function UsageList({ label, groups, select }: { label: string; groups: UsageGroup[]; select: (span: TraceSpan) => void }) {
+  return <div className="tr-usage-group">
+    {groups.some(group => group.badges?.length) && <div className="tr-badge-legend" aria-label="Badge color guide">
+      {label === "Skills" && <span><i data-kind="scope" />Scope</span>}
+      <span><i data-kind="source" />Source</span>
+      <span><i data-kind="owner" />{label === "Skills" ? "Package" : "Server"}</span>
+    </div>}
+    {!groups.length ? <p>No {label.toLowerCase()} detected in loaded history.</p> : groups.map(group => (
+      <details key={group.key}>
+        <summary title={group.source}>
+          <span className="tr-usage-identity">
+            <span className="tr-usage-title">{group.name}</span>
+            {group.subtitle && <span className="tr-usage-source" aria-label={group.subtitle}>
+              {group.badges?.map(badge => <span className="tr-usage-badge" data-kind={badge.kind} title={`${badge.kind === "scope" ? "Scope" : badge.kind === "source" ? "Source" : label === "Skills" ? "Package" : "Server"}: ${badge.label}`} key={`${badge.kind}-${badge.label}`}>{badge.label}</span>)}
+            </span>}
+          </span>
+          <small>{group.evidence === "read" ? "Read" : group.evidence === "invoked" ? "Invoked" : "Calls"} · {group.spans.length}
+            {group.spans.some(span => span.status === "failed") && <span className="tr-usage-failures"> · {group.spans.filter(span => span.status === "failed").length} failed</span>}
+          </small>
+        </summary>
+        <code>{group.source}</code>
+        <div className="tr-usage-calls">{group.spans.map(span => <button key={span.id} type="button" onClick={() => select(span)}>
+          <span>{span.name}</span><Status status={span.status} />
+        </button>)}</div>
+      </details>
+    ))}
+  </div>;
+}
+
 function TraceViewer({
   threadId,
   back,
@@ -720,6 +750,8 @@ function TraceViewer({
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [limit, setLimit] = useState(400);
+  const viewId = useId();
+  const [view, setView] = useState<"Activity" | "Skills" | "Tools" | "Usage">("Activity");
   const [turnId, setTurnId] = useState<string | null>(null);
   const [spanId, setSpanId] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -767,6 +799,7 @@ function TraceViewer({
     () => data?.spans.filter((span) => span.turnId === turn?.id) ?? [],
     [data, turn?.id],
   );
+  const usageGroups = useMemo(() => groupUsage(data?.spans ?? []), [data]);
   const selected = spans.find((span) => span.id === spanId);
   const elapsed =
     turn?.startedAt != null
@@ -836,6 +869,46 @@ function TraceViewer({
         !error && <Empty>Loading trace…</Empty>
       ) : (
         <>
+          <div className="tr-view-tabs" role="tablist" aria-label="Trace views">
+            {(["Activity", "Skills", "Tools", "Usage"] as const).map((name, index, names) => (
+              <button key={name} type="button" role="tab" id={`${viewId}-${name}`} aria-controls={`${viewId}-content`}
+                aria-selected={view === name} tabIndex={view === name ? 0 : -1}
+                onClick={() => { setView(name); setSpanId(null); }}
+                onKeyDown={event => {
+                  const next = event.key === "ArrowRight" ? (index + 1) % names.length : event.key === "ArrowLeft" ? (index + names.length - 1) % names.length : event.key === "Home" ? 0 : event.key === "End" ? names.length - 1 : null;
+                  if (next === null) return;
+                  event.preventDefault(); setView(names[next]); setSpanId(null);
+                  document.getElementById(`${viewId}-${names[next]}`)?.focus();
+                }}>
+                {name}{name === "Skills" && <span>{usageGroups.skills.length}</span>}{name === "Tools" && <span>{usageGroups.tools.length}</span>}
+              </button>
+            ))}
+          </div>
+          <div className="tr-view-content" id={`${viewId}-content`} role="tabpanel" aria-labelledby={`${viewId}-${view}`}>
+          {view === "Usage" ? <section className="tr-usage-page">
+            <h3>Usage</h3><p>Provider-reported tokens for this thread. Timing and call counts are for the selected turn.</p>
+          <div className="tr-controls">
+            <label className="tr-turn-label">
+              <span>Turn</span>
+              <select
+                aria-label="Select turn"
+                value={turn?.id ?? ""}
+                onChange={(event) => {
+                  setTurnId(event.target.value);
+                  setSpanId(null);
+                }}
+                disabled={!data.turns.length}
+              >
+                {!data.turns.length && <option value="">No turns yet</option>}
+                {data.turns.map((item, index) => (
+                  <option value={item.id} key={item.id}>
+                    {index + 1} · {item.label.slice(0, 100)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {turn && <Status status={turn.status} />}
+          </div>
           <div className="tr-summary">
             <div>
               <span>Duration</span>
@@ -876,7 +949,13 @@ function TraceViewer({
               </div>
             </dl>
           )}
-          <div className="tr-controls">
+          </section> : view === "Skills" || view === "Tools" ? <section className="tr-usage-page">
+            <p>{view === "Skills" ? "Detected in loaded history. Read means the file was requested; Invoked means an explicit skill call." : "Recorded calls in loaded history. Expand a tool to inspect its calls."}</p>
+            <UsageList label={view} groups={view === "Skills" ? usageGroups.skills : usageGroups.tools} select={span => { setTurnId(span.turnId); setSpanId(span.id); setQuery(""); setFailuresOnly(false); setCollapsed(new Set()); setView("Activity"); }} />
+          </section> : <>
+          <div className="tr-workspace">
+            <section className="tr-timeline" aria-label="Trace timeline">
+              <div className="tr-filterbar">
             <label className="tr-turn-label">
               <span>Turn</span>
               <select
@@ -896,11 +975,6 @@ function TraceViewer({
                 ))}
               </select>
             </label>
-            {turn && <Status status={turn.status} />}
-          </div>
-          <div className="tr-workspace">
-            <section className="tr-timeline" aria-label="Trace timeline">
-              <div className="tr-filterbar">
                 <div className="tr-search">
                   <Icon name="Search" />
                   <Input
@@ -939,25 +1013,9 @@ function TraceViewer({
                 limit={limit}
                 close={() => setSpanId(null)}
               />
-            ) : (
-              <section className="tr-inspector tr-inspector-empty">
-                <div>
-                  <Icon name="SlidersHorizontal" />
-                  <h3>Inside the span</h3>
-                  <p>
-                    {spanId ? (
-                      "This span is no longer in the current history. Select another span to inspect."
-                    ) : (
-                      <>
-                        Select a span to inspect its input,
-                        <br />
-                        output, and source events.
-                      </>
-                    )}
-                  </p>
-                </div>
-              </section>
-            )}
+            ) : null}
+          </div>
+          </>}
           </div>
           <footer className="tr-coverage">
             <span>

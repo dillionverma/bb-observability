@@ -36,6 +36,14 @@ function fixture(initial: EventRow[] = []) {
 }
 
 describe("TraceService history loading", () => {
+  it("extracts skill paths beyond the compact command limit without retaining outputs", async () => {
+    const command = `echo ${"x".repeat(600)}; cat /skills/shadcn/SKILL.md`;
+    const f = fixture([event(1, { command, aggregatedOutput: "private skill contents" })]);
+    const result = await f.service.trace("thread-1", 100);
+    expect(result.spans[0].operationUsage?.skills).toEqual([{ name: "shadcn", source: "/skills/shadcn/SKILL.md", evidence: "read" }]);
+    expect(JSON.stringify(result)).not.toContain("private skill contents");
+  });
+
   it("paginates beyond the SDK's 100 event page and keeps only the latest requested window", async () => {
     const f = fixture(Array.from({ length: 251 }, (_, i) => event(i + 1)));
     const trace = await f.service.trace("thread-1", 200);

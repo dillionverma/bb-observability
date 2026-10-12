@@ -1,3 +1,4 @@
+import { extractUsage } from "./usage";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import type { EventRow, SpanDetail, ThreadSummary, TraceResult } from "./model";
 import { buildTrace } from "./trace";
@@ -126,7 +127,9 @@ export class TraceService {
       }
       if (!rows.length) { exhausted = true; break; }
       for (const row of rows) {
-        const slim = { ...row, data: compact(row.data) as Record<string, unknown> };
+        const slim = { ...row, data: compact(row.data) as Record<string, unknown>,
+          operationUsage: extractUsage(record(row.data.item)),
+        };
         bytes += JSON.stringify(slim).length;
         if (bytes > 4_000_000) break;
         events.push(slim);
