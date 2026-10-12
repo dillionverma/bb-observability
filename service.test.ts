@@ -159,6 +159,21 @@ describe("TraceService history loading", () => {
   });
 });
 
+describe("TraceService thread list", () => {
+  it("pages threads by most recent update across projects, not bb's project order", async () => {
+    const row = (id: string, projectId: string, updatedAt: number) => ({ id, title: id, providerId: "codex", status: "idle", updatedAt, projectId });
+    const rows = [...Array.from({ length: 50 }, (_, i) => row(`a-${i}`, "proj_a", 1000 + i)), row("b-newest", "proj_b", 9000), row("c-newer", "proj_c", 5000)];
+    const list = vi.fn(async (input: { offset?: number; limit?: number }) => rows.slice(input.offset ?? 0, (input.offset ?? 0) + (input.limit ?? rows.length)));
+    const service = new TraceService({ list } as unknown as Threads);
+    services.push(service);
+    const first = await service.list({ offset: 0 });
+    expect(first.threads.slice(0, 3).map(thread => thread.id)).toEqual(["b-newest", "c-newer", "a-49"]);
+    expect(first).toMatchObject({ hasMore: true, threads: { length: 50 } });
+    const second = await service.list({ offset: 50 });
+    expect(second).toMatchObject({ hasMore: false, threads: [{ id: "a-1" }, { id: "a-0" }] });
+  });
+});
+
 describe("TraceService operation details", () => {
   it("lazily fetches the completion payload instead of the compact cached preview", async () => {
     const output = "full output ".repeat(100);
