@@ -241,6 +241,27 @@ describe("native trace explorer", () => {
     ).toHaveLength(2);
   });
 
+  it("follows the newest turn as it starts unless an older turn was chosen", async () => {
+    const next = { ...trace().turns[0]!, id: "turn-2", label: "Next turn", status: "running" as const, endedAt: null };
+    let result = trace();
+    const view = panel({ trace: () => result });
+    const turnSelect = async () => (await view.findByRole("combobox", { name: "Select turn" })) as HTMLSelectElement;
+    const reconnect = async () => {
+      await view.behavior.setRealtimeConnectionState("reconnecting");
+      await view.behavior.setRealtimeConnectionState("connected");
+    };
+    expect((await turnSelect()).value).toBe("turn-1");
+    result = trace({ turns: [...trace().turns, next], spans: [...trace().spans, span("probe", { name: "live probe", turnId: "turn-2", parentId: null })] });
+    await reconnect();
+    await view.findByRole("button", { name: "live probe" });
+    expect((await turnSelect()).value).toBe("turn-2");
+    fireEvent.change(await turnSelect(), { target: { value: "turn-1" } });
+    result = trace({ turns: [...result.turns, { ...next, id: "turn-3", label: "Third turn" }] });
+    await reconnect();
+    await waitFor(() => expect(view.inspection.rpcCalls.filter((call) => call.method === "trace")).toHaveLength(3));
+    expect((await turnSelect()).value).toBe("turn-1");
+  });
+
   it("does not allow a slow previous detail response to replace the selected span", async () => {
     let resolveOld: ((value: SpanDetail) => void) | undefined;
     const view = panel({

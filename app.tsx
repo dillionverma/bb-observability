@@ -769,9 +769,7 @@ function TraceViewer({
             if (request === version.current) {
               setData(result);
               setTurnId((old) =>
-                result.turns.some((turn) => turn.id === old)
-                  ? old
-                  : (result.turns.at(-1)?.id ?? null),
+                result.turns.some((turn) => turn.id === old) ? old : null,
               );
               setError(null);
             }
@@ -793,8 +791,15 @@ function TraceViewer({
     };
   }, [fetchTrace]);
   const connection = useRefreshSignals(() => fetchTrace(true), threadId);
+  // With no chosen turn, follow the newest one, except while a span from an older turn is open.
+  const shownTurnId =
+    turnId ?? data?.spans.find((span) => span.id === spanId)?.turnId;
   const turn =
-    data?.turns.find((item) => item.id === turnId) ?? data?.turns.at(-1);
+    data?.turns.find((item) => item.id === shownTurnId) ?? data?.turns.at(-1);
+  const chooseTurn = (id: string) => {
+    setTurnId(id === data?.turns.at(-1)?.id ? null : id);
+    setSpanId(null);
+  };
   const spans = useMemo(
     () => data?.spans.filter((span) => span.turnId === turn?.id) ?? [],
     [data, turn?.id],
@@ -893,10 +898,7 @@ function TraceViewer({
               <select
                 aria-label="Select turn"
                 value={turn?.id ?? ""}
-                onChange={(event) => {
-                  setTurnId(event.target.value);
-                  setSpanId(null);
-                }}
+                onChange={(event) => chooseTurn(event.target.value)}
                 disabled={!data.turns.length}
               >
                 {!data.turns.length && <option value="">No turns yet</option>}
@@ -961,10 +963,7 @@ function TraceViewer({
               <select
                 aria-label="Select turn"
                 value={turn?.id ?? ""}
-                onChange={(event) => {
-                  setTurnId(event.target.value);
-                  setSpanId(null);
-                }}
+                onChange={(event) => chooseTurn(event.target.value)}
                 disabled={!data.turns.length}
               >
                 {!data.turns.length && <option value="">No turns yet</option>}
