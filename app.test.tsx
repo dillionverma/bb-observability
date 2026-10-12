@@ -106,6 +106,40 @@ const panel = (
   );
 
 describe("native trace explorer", () => {
+  it("shows skill evidence and tool counts across turns and opens a source call", async () => {
+    const skillSpan = span("skill-read", { name: "Read skill", operationUsage: { tool: "Shell", skills: [{ name: "shadcn", source: "/global/shadcn/SKILL.md", evidence: "read", scope: "Global", origin: "Shared agents" }] } });
+    const view = panel({ trace: () => trace({ spans: [skillSpan] }) });
+    fireEvent.click(await view.findByRole("tab", { name: /Skills/ }));
+    await view.findByText("shadcn");
+    expect(view.getByText("Read · 1")).toBeTruthy();
+    expect(view.getByText("Global")).toBeTruthy();
+    expect(view.getByText("Shared agents")).toBeTruthy();
+    expect(view.queryByRole("heading", { name: /Skills/ })).toBeNull();
+    expect(view.queryByText("Calls · 1")).toBeNull();
+    fireEvent.click(view.getByText("shadcn"));
+    expect(view.getByText("/global/shadcn/SKILL.md")).toBeTruthy();
+    fireEvent.click(view.getAllByRole("button", { name: /Read skill/ })[0]);
+    await waitFor(() => expect(view.inspection.rpcCalls.some(call => call.method === "detail")).toBe(true));
+    view.unmount();
+  });
+
+  it("supports keyboard view navigation and hides the inspector until a call is selected", async () => {
+    const view = panel();
+    const activity = await view.findByRole("tab", { name: "Activity" });
+    expect(activity.getAttribute("aria-selected")).toBe("true");
+    expect(view.queryByRole("region", { name: "Span inspector" })).toBeNull();
+    fireEvent.keyDown(activity, { key: "ArrowRight" });
+    expect(view.getByRole("tab", { name: /Skills/ }).getAttribute("aria-selected")).toBe("true");
+    expect(view.queryByRole("region", { name: "Trace timeline" })).toBeNull();
+    fireEvent.keyDown(view.getByRole("tab", { name: /Skills/ }), { key: "End" });
+    expect(view.getByRole("tab", { name: "Usage" }).getAttribute("aria-selected")).toBe("true");
+    fireEvent.keyDown(view.getByRole("tab", { name: "Usage" }), { key: "Home" });
+    fireEvent.click(view.getByRole("button", { name: "npm test" }));
+    await view.findByRole("region", { name: "Span inspector" });
+    fireEvent.click(view.getByRole("button", { name: "Close inspector" }));
+    expect(view.queryByRole("region", { name: "Span inspector" })).toBeNull();
+  });
+
   it("registers native pages and opens a thread via host navigation", async () => {
     expect(app.navPanels[0]?.path).toBe("traces");
     expect(app.threadPanelActions[0]?.layout).toBe("flush");
@@ -127,6 +161,9 @@ describe("native trace explorer", () => {
   it("shows core metrics first and fetches input/output only when a span is selected", async () => {
     const view = panel();
     await view.findByText("Build the trace explorer");
+    expect(view.queryByRole("region", { name: "Span inspector" })).toBeNull();
+    expect(view.queryByText("Thread tokens")).toBeNull();
+    fireEvent.click(view.getByRole("tab", { name: "Usage" }));
     expect(view.getByText("Thread tokens")).toBeTruthy();
     const usage = within(view.getByLabelText("Provider-reported thread token breakdown"));
     expect(usage.getByText("Input").nextElementSibling?.textContent).toBe("1K");
@@ -135,6 +172,7 @@ describe("native trace explorer", () => {
     expect(
       view.inspection.rpcCalls.filter((call) => call.method === "detail"),
     ).toHaveLength(0);
+    fireEvent.click(view.getByRole("tab", { name: "Activity" }));
     fireEvent.click(view.getByRole("button", { name: "npm test" }));
     const inspector = await view.findByRole("region", {
       name: "Span inspector",
@@ -197,7 +235,7 @@ describe("native trace explorer", () => {
         .value,
     ).toBe("turn-1");
     fireEvent.click(view.getByRole("tab", { name: "Output" }));
-    expect(view.getByRole("tabpanel").textContent).toBe("Finished");
+    expect(within(view.getByRole("region", { name: "Span inspector" })).getByRole("tabpanel").textContent).toBe("Finished");
     expect(
       view.inspection.rpcCalls.filter((call) => call.method === "trace"),
     ).toHaveLength(2);
@@ -217,12 +255,12 @@ describe("native trace explorer", () => {
     await waitFor(() => expect(resolveOld).toBeTypeOf("function"));
     fireEvent.click(view.getByRole("button", { name: "npm build" }));
     await waitFor(() =>
-      expect(view.getByRole("tabpanel").textContent).toBe("New selection"),
+      expect(within(view.getByRole("region", { name: "Span inspector" })).getByRole("tabpanel").textContent).toBe("New selection"),
     );
     await act(async () => {
       resolveOld!(detail("Stale selection"));
     });
-    expect(view.getByRole("tabpanel").textContent).toBe("New selection");
+    expect(within(view.getByRole("region", { name: "Span inspector" })).getByRole("tabpanel").textContent).toBe("New selection");
   });
 
   it("recovers from failed trace loads and passes the bounded history limit", async () => {

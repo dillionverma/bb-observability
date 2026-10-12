@@ -5,7 +5,7 @@ const id = z.string().min(1).max(300);
 const status = z.enum(["running", "completed", "failed", "interrupted", "unknown"]);
 const time = z.number().nullable();
 const thread = z.object({ id, title: z.string(), provider: z.string(), status: z.string(), updatedAt: z.number(), projectId: z.string().nullable() });
-const span = z.object({ id, parentId: id.nullable(), turnId: id, name: z.string(), kind: z.string(), status, startedAt: time, endedAt: time, durationMs: time, timing: z.enum(["reported", "observed", "unknown"]), sourceSeq: z.number(), detailSeq: z.number(), summary: z.string() });
+const span = z.object({ id, parentId: id.nullable(), turnId: id, name: z.string(), kind: z.string(), status, startedAt: time, endedAt: time, durationMs: time, timing: z.enum(["reported", "observed", "unknown"]), sourceSeq: z.number(), detailSeq: z.number(), summary: z.string(), operationUsage: z.object({ tool: z.string().optional(), toolIdentity: z.string().optional(), toolOrigin: z.string().optional(), skills: z.array(z.object({ name: z.string(), source: z.string(), evidence: z.enum(["read", "invoked"]), scope: z.enum(["Global", "Project"]).optional(), origin: z.string().optional(), packageName: z.string().optional() })) }).optional() });
 const turn = z.object({ id, label: z.string(), model: z.string().nullable(), status, startedAt: time, endedAt: time, spanCount: z.number(), toolCount: z.number(), errorCount: z.number() });
 export const rpcContract = defineRpcContract({
   list: {

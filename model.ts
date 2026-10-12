@@ -1,5 +1,6 @@
 export type TraceStatus = "running" | "completed" | "failed" | "interrupted" | "unknown";
 export interface EventRow {
+  operationUsage?: import("./usage").OperationUsage;
   id: string;
   seq: number;
   createdAt: number;
@@ -16,6 +17,7 @@ export interface ThreadSummary {
   projectId: string | null;
 }
 export interface TraceSpan {
+  operationUsage?: import("./usage").OperationUsage;
   id: string;
   parentId: string | null;
   turnId: string;

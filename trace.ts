@@ -1,3 +1,4 @@
+import { extractUsage } from "./usage";
 import type { EventRow, TraceProjection, TraceSpan, TraceStatus, TraceTurn, TraceUsage } from "./model";
 
 type RecordValue = Record<string, unknown>;
@@ -254,6 +255,20 @@ export function buildTrace(inputEvents: EventRow[], threadStatus: string): Trace
     span.detailSeq = row.seq;
     span.name = itemName(item);
     span.summary = itemSummary(item);
+    const operationUsage = row.operationUsage ?? extractUsage(item);
+    if (!span.operationUsage) span.operationUsage = operationUsage;
+    else {
+      if (operationUsage.tool) span.operationUsage.tool = operationUsage.tool;
+      const retainsServer = operationUsage.toolOrigin === "MCP" && span.operationUsage.toolOrigin?.startsWith("MCP · ");
+      if (operationUsage.toolOrigin && !retainsServer) span.operationUsage.toolOrigin = operationUsage.toolOrigin;
+      if (operationUsage.toolIdentity && !retainsServer && (operationUsage.toolOrigin || !span.operationUsage.toolIdentity)) span.operationUsage.toolIdentity = operationUsage.toolIdentity;
+      const skills = new Map(span.operationUsage.skills.map(skill => [`${skill.evidence}:${skill.source}`, skill]));
+      for (const skill of operationUsage.skills) {
+        const key = `${skill.evidence}:${skill.source}`;
+        skills.set(key, { ...skills.get(key), ...skill });
+      }
+      span.operationUsage.skills = [...skills.values()].slice(0, 32);
+    }
     entry.parentItemId = string(item.parentToolCallId) || entry.parentItemId;
     if (isStart && span.startedAt === null && !entry.complete) span.startedAt = row.createdAt;
     // Replayed start snapshots must not reopen a completed tool.
