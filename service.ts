@@ -77,8 +77,10 @@ export class TraceService {
       const matches = [...result.active.results, ...result.archived.results].map(x => x.thread).filter(x => !input.projectId || x.projectId === input.projectId);
       return { threads: matches.map(summarizeThread), hasMore: false };
     }
-    const rows = await this.threads.list({ ...(input.projectId ? { projectId: input.projectId } : {}), offset: input.offset, limit: 50, includeHidden: false, signal: this.lifecycle.signal });
-    return { threads: rows.map(summarizeThread), hasMore: rows.length === 50 };
+    // bb orders threads.list by project, then creation, so recency needs the whole set sorted before paging.
+    const rows = await this.threads.list({ ...(input.projectId ? { projectId: input.projectId } : {}), includeHidden: false, signal: this.lifecycle.signal });
+    const recent = rows.map(summarizeThread).sort((a, b) => b.updatedAt - a.updatedAt);
+    return { threads: recent.slice(input.offset, input.offset + 50), hasMore: recent.length > input.offset + 50 };
   }
 
   async trace(threadId: string, limit: number, refresh = false): Promise<TraceResult> {
