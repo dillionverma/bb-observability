@@ -312,6 +312,8 @@ describe("native trace explorer", () => {
       trace: () => trace({ spans: [trace().spans[0]!, ...rows] }),
     });
     await view.findByRole("list", { name: "Trace spans" });
+    // Run the mount effect that scrolls to the top first, or it can undo the scroll below.
+    await act(async () => {});
     expect(view.getAllByRole("listitem").length).toBeLessThan(40);
     const scroll = view.container.querySelector(".tr-tree-scroll")!;
     fireEvent.scroll(scroll, { target: { scrollTop: 40_000 } });
