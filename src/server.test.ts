@@ -63,7 +63,7 @@ describe("Traces plugin RPC and lifecycle", () => {
   });
 
   it("uses only public SDK APIs and package-local source", async () => {
-    const scan = await experimental_scanPublicSdkOnly(fileURLToPath(new URL(".", import.meta.url)), {
+    const scan = await experimental_scanPublicSdkOnly(fileURLToPath(new URL("..", import.meta.url)), {
       allow: [/^vitest$/, /^@testing-library\//, /^react(?:-dom)?(?:\/|$)/, /^@hugeicons\//, /^@radix-ui\//, /^(?:class-variance-authority|clsx|tailwind-merge)$/],
     });
     expect(scan.violations).toEqual([]);

@@ -1,4 +1,4 @@
-import { groupUsage, type UsageGroup } from "./usage";
+import { groupUsage, type UsageGroup } from "./traces/usage";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
@@ -8,13 +8,13 @@ import {
   useRealtimeConnectionState,
   useRpc,
 } from "@get-bb/plugin-sdk/app";
-import type { rpcContract } from "./contract";
+import type { rpcContract } from "./traces/contract";
 import type {
   SpanDetail,
   ThreadSummary,
   TraceResult,
   TraceSpan,
-} from "./model";
+} from "./traces/model";
 import { Button } from "./components/ui/button";
 import { Icon } from "./components/ui/icon";
 import { Input } from "./components/ui/input";

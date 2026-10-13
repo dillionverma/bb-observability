@@ -9,7 +9,7 @@ import {
 } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { CapturedPluginApp } from "@get-bb/plugin-sdk/testing/app";
-import type { SpanDetail, TraceResult, TraceSpan } from "./model";
+import type { SpanDetail, TraceResult, TraceSpan } from "./traces/model";
 
 let app: CapturedPluginApp;
 beforeAll(async () => {

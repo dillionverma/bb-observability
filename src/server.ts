@@ -1,8 +1,8 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
-import { rpcContract } from "./contract";
-import { TraceService } from "./service";
+import { rpcContract } from "./traces/contract";
+import { TraceService } from "./traces/service";
 
-export { rpcContract } from "./contract";
+export { rpcContract } from "./traces/contract";
 
 export default function plugin(bb: BbPluginApi) {
   const service = new TraceService(bb.sdk.threads);
